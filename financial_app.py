@@ -11,12 +11,9 @@ st.set_page_config(
     page_title="💰 Financial Assistant" 
 ) 
 
-# --- Session State Initialization (Crucial Fix) ---
-# Initialize session state keys for file uploaders before main() executes.
-if 'file_a_uploader' not in st.session_state:
-    st.session_state.file_a_uploader = None
-if 'file_b_uploader' not in st.session_state:
-    st.session_state.file_b_uploader = None
+# --- REMOVED THE MANUAL SESSION STATE INITIALIZATION BLOCK --- 
+# The st.file_uploader widget is self-initializing and throws an error 
+# if you try to manually set its key's value to None.
 
 # --- Configuration ---
 # 1. RECURRING KEYWORDS: FINAL list verified against all your provided samples.
@@ -62,7 +59,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # 3. Convert date columns and format to MM/DD/YY
     for col in ['Transaction Date', 'Post Date']:
-        df[col] = pd.to_datetime(col, errors='coerce') 
+        df[col] = pd.to_datetime(df[col], errors='coerce') 
         df[col] = df[col].dt.strftime('%m/%d/%y')
     
     # Return all 6 columns
@@ -214,7 +211,6 @@ def main():
         st.caption("This minimizes clutter on the main page.")
 
     # Create columns for Source File A to display uploader and status side-by-side
-    # The columns are defined here, but the session state is initialized above main()
     col_a_label, col_a_status = st.columns([0.8, 0.2])
 
     with col_a_label:
@@ -224,7 +220,7 @@ def main():
             key='file_a_uploader'
         )
     with col_a_status:
-        # Display status badge in the small column, checking session state separately
+        # Check the value returned by the widget itself (which is stored in session state)
         status_a = '✅' if st.session_state.get('file_a_uploader') else '⚠️'
         # Use st.markdown to display the status, aligned with the uploader
         st.markdown(f"<div style='padding-top: 25px;'>{status_a}</div>", unsafe_allow_html=True)
@@ -240,7 +236,7 @@ def main():
             key='file_b_uploader'
         )
     with col_b_status:
-        # Display status badge in the small column
+        # Check the value returned by the widget itself
         status_b = '✅' if st.session_state.get('file_b_uploader') else '⚠️'
         st.markdown(f"<div style='padding-top: 25px;'>{status_b}</div>", unsafe_allow_html=True)
         
@@ -292,6 +288,7 @@ def main():
                     generate_report(path_a, path_b, output_path)
                     
                     # Re-read files needed for display (Pandas DataFrame)
+                    # Note: file_a and file_b variables hold the uploaded file data, so we check them here
                     df_a_cleaned = clean_data(pd.read_excel(path_a))
                     df_b_cleaned = clean_data(pd.read_excel(path_b))
                     
