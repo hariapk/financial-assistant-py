@@ -11,9 +11,34 @@ st.set_page_config(
     page_title="💰 Financial Assistant" 
 ) 
 
-# --- REMOVED THE MANUAL SESSION STATE INITIALIZATION BLOCK --- 
-# The st.file_uploader widget is self-initializing and throws an error 
-# if you try to manually set its key's value to None.
+# --- Custom CSS for Styling ---
+# This CSS targets the primary button style globally to change the background color from red to green.
+# This ensures all primary buttons (like 'Generate Report') use the new green color.
+st.markdown("""
+<style>
+/* Change the primary button background color to a nice green */
+.stButton>button.primary {
+    background-color: #4CAF50; /* Green */
+    color: white; /* Keep text white */
+    border-color: #4CAF50;
+}
+
+/* Ensure secondary buttons (if used) remain default or are styled differently */
+.stButton>button:not(.primary) {
+    /* You can add custom styles for other buttons here if needed */
+}
+
+/* Center and style the title/header elements */
+div[data-testid="stAppViewBlock"] h1 {
+    text-align: center;
+    color: #00BFFF; /* Light Blue for the main dollar title */
+}
+div[data-testid="stAppViewBlock"] h3 {
+    text-align: center;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 # --- Configuration ---
 # 1. RECURRING KEYWORDS: FINAL list verified against all your provided samples.
@@ -197,9 +222,9 @@ def generate_report(file_a_path: str, file_b_path: str, output_path: str):
 # --- Streamlit Web App Interface ---
 
 def main():
-    # CUSTOM STYLING FOR BRANDING
-    st.markdown("<div style='text-align: center; color: #FFD700;'><h1>💰 Financial Assistant</h1></div>", unsafe_allow_html=True)
-    st.markdown("<div style='text-align: center;'><h3>Generate Your Comprehensive Expense Report</h3></div>", unsafe_allow_html=True)
+    # CUSTOM STYLING FOR BRANDING: HTML is simplified since CSS handles the color and centering
+    st.title('💰 Financial Assistant')
+    st.markdown('### Generate Your Comprehensive Expense Report')
     
     # --- 1. Upload Section (Clean and Compact) ---
     st.subheader("📁 1. Upload Transaction Files")
@@ -245,7 +270,7 @@ def main():
     # --- 2. Generate Button (Isolated and Primary) ---
     st.subheader("🚀 2. Generate Report")
     
-    # Use a primary button style for visual prominence
+    # The 'type="primary"' button will now be green due to the custom CSS injection
     button_clicked = st.button('Generate 4-Sheet Expense Report', key='main_generate_button', type="primary")
 
     st.markdown("---") 
@@ -288,7 +313,6 @@ def main():
                     generate_report(path_a, path_b, output_path)
                     
                     # Re-read files needed for display (Pandas DataFrame)
-                    # Note: file_a and file_b variables hold the uploaded file data, so we check them here
                     df_a_cleaned = clean_data(pd.read_excel(path_a))
                     df_b_cleaned = clean_data(pd.read_excel(path_b))
                     
