@@ -193,8 +193,9 @@ def generate_report(file_a_path: str, file_b_path: str, output_path: str):
 # --- Streamlit Web App Interface ---
 
 def main():
-    st.title('💰 Financial Assistant')
-    st.markdown('### Generate Your Comprehensive Expense Report')
+    # CUSTOM STYLING FOR BRANDING
+    st.markdown("<div style='text-align: center; color: #FFD700;'><h1>💰 Financial Assistant</h1></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center;'><h3>Generate Your Comprehensive Expense Report</h3></div>", unsafe_allow_html=True)
     
     # --- 1. Upload Section (Clean and Compact) ---
     st.subheader("📁 1. Upload Transaction Files")
@@ -205,15 +206,27 @@ def main():
         st.markdown(f"**{', '.join(REQUIRED_COLUMNS)}**")
         st.caption("This minimizes clutter on the main page.")
 
-    # Stacked uploads for clean look on desktop and mobile
-    file_a = st.file_uploader("Source File A (.xlsx or .xls)", type=['xlsx', 'xls'], key='file_a_uploader')
-    file_b = st.file_uploader("Source File B (.xlsx or .xls)", type=['xlsx', 'xls'], key='file_b_uploader')
+    # Stacked uploads with dynamic labels
+    
+    # Check if files are uploaded to determine the label status
+    file_a = st.file_uploader(
+        f"Source File A (.xlsx or .xls) {'✅' if st.session_state.get('file_a_uploader') else '⚠️'}", 
+        type=['xlsx', 'xls'], 
+        key='file_a_uploader'
+    )
+    file_b = st.file_uploader(
+        f"Source File B (.xlsx or .xls) {'✅' if st.session_state.get('file_b_uploader') else '⚠️'}", 
+        type=['xlsx', 'xls'], 
+        key='file_b_uploader'
+    )
         
     st.markdown("---") 
     
-    # --- 2. Generate Button (Isolated for clear workflow) ---
+    # --- 2. Generate Button (Isolated and Primary) ---
     st.subheader("🚀 2. Generate Report")
-    button_clicked = st.button('Click to Run Analysis', key='main_generate_button', type="primary")
+    
+    # Use a primary button style for visual prominence
+    button_clicked = st.button('Generate 4-Sheet Expense Report', key='main_generate_button', type="primary")
 
     st.markdown("---") 
 
@@ -222,7 +235,7 @@ def main():
     
     status_message = st.empty()
     
-    # --- SIDEBAR (For less critical info) ---
+    # --- SIDEBAR ---
     st.sidebar.title("⚙️ Configuration")
     st.sidebar.caption("Keywords used to flag recurring transactions.")
     st.sidebar.markdown(f'**Recurring Keywords List:**')
@@ -348,4 +361,10 @@ def main():
 
 
 if __name__ == '__main__':
+    # Initialize session state for file trackers if not present
+    if 'file_a_uploader' not in st.session_state:
+        st.session_state.file_a_uploader = None
+    if 'file_b_uploader' not in st.session_state:
+        st.session_state.file_b_uploader = None
+    
     main()
