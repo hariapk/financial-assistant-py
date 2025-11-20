@@ -8,7 +8,7 @@ import re
 # --- UI Configuration (FIXED: layout changed to narrow/default) ---
 st.set_page_config(
     layout="centered", # Changed from "wide" to "centered" (the default is narrow/centered)
-    page_title="💰 Financial Report Tool" 
+    page_title="💰 Financial Assistant" 
 ) 
 
 # --- Configuration ---
@@ -337,4 +337,5 @@ def main():
     st.caption(f'**Recurring Keywords List (Edit in code):** {", ".join(RECURRING_KEYWORDS)}') 
 
 if __name__ == '__main__':
+
     main()
