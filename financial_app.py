@@ -5,11 +5,10 @@ import tempfile
 import os
 import re
 
-# --- UI Configuration (Must be the first Streamlit command) ---
+# --- UI Configuration (FIXED: layout changed to narrow/default) ---
 st.set_page_config(
-    layout="wide", 
-    page_title="💰 Financial Report Tool",
-    icon="📊"
+    layout="centered", # Changed from "wide" to "centered" (the default is narrow/centered)
+    page_title="💰 Financial Report Tool" 
 ) 
 
 # --- Configuration ---
@@ -56,7 +55,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # 3. Convert date columns and format to MM/DD/YY
     for col in ['Transaction Date', 'Post Date']:
-        df[col] = pd.to_datetime(col, format='%m/%d/%y', errors='coerce') # Corrected: use df[col]
+        df[col] = pd.to_datetime(df[col], errors='coerce') 
         df[col] = df[col].dt.strftime('%m/%d/%y')
     
     # Return all 6 columns
@@ -197,11 +196,12 @@ def main():
     st.title('💰 Financial Data Processing Assistant')
     st.markdown('### Generate Your Comprehensive Expense Report')
     
-    # --- File Upload Section (Wide Layout + Columns) ---
+    # --- File Upload Section (Narrow Layout + Columns) ---
     st.subheader("📁 1. Upload Transaction Files")
     st.write("Please upload both source files with the **6 required columns**.")
     
     # Using st.columns for clean side-by-side arrangement
+    # Columns will now compress to fit the narrow layout
     col1, col2 = st.columns(2)
     
     with col1:
@@ -242,7 +242,6 @@ def main():
                     generate_report(path_a, path_b, output_path)
                     
                     # Re-read files needed for display (Pandas DataFrame)
-                    # We need to re-read to display them in the Streamlit tabs
                     df_a_cleaned = clean_data(pd.read_excel(path_a))
                     df_b_cleaned = clean_data(pd.read_excel(path_b))
                     
@@ -256,7 +255,7 @@ def main():
 
                     status_message.success("Report generated successfully! Scroll down for analysis.")
                     
-                    # --- OUTPUT SECTION (NEW UI: METRICS, CHARTS, TABS, DATAFRAMES) ---
+                    # --- OUTPUT SECTION (METRICS, CHARTS, TABS, DATAFRAMES) ---
                     output_container.header("3. 📊 Expense Analysis")
                     
                     # Row 1: Key Metrics (st.metric)
