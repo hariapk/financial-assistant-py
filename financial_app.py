@@ -51,15 +51,10 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Cleans data types, standardizes date format, and ensures column integrity.
     """
-    # 1. Enforce the 6 column names to match the input file exactly
     df.columns = REQUIRED_COLUMNS 
-
-    # 2. Convert 'Amount' to numeric
     df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
 
-    # 3. Convert date columns and format to MM/DD/YY
     for col in ['Transaction Date', 'Post Date']:
-        # CRITICAL FIX: Ensure we use the column data (df[col]) for conversion
         df[col] = pd.to_datetime(df[col], errors='coerce') 
         df[col] = df[col].dt.strftime('%m/%d/%y')
     
@@ -219,7 +214,7 @@ def main():
         st.sidebar.caption(f'- {keyword}')
 
 
-    # Conditional structure for processing
+    # --- PROCESSING AND GENERATION LOGIC ---
     if button_clicked:
         if file_a is not None and file_b is not None:
             # --- START PROCESSING ---
@@ -244,80 +239,99 @@ def main():
                     with open(final_path, "rb") as f:
                         report_bytes = f.read()
                         
-                    # Store the report data in Session State for the download button on the NEXT rerun
+                    # Store data in Session State
                     st.session_state.report_bytes = report_bytes
                     st.session_state.report_filename = output_filename
+                    st.session_state.combined_expenses_df = combined_expenses_df
+                    st.session_state.pivot_summary_df = pivot_summary_df
+                    st.session_state.df_a_cleaned = df_a_cleaned
+                    st.session_state.df_b_cleaned = df_b_cleaned
+                    
+                    # CRITICAL: Set flag to display analysis section
+                    st.session_state.report_ready = True
                     
                     status_message.success("Report generated successfully! Scroll down for analysis. The download button is now active above.")
-                    
-                    # --- OUTPUT SECTION (METRICS, CHARTS, TABS, DATAFRAMES) ---
-                    output_container.header("3. 📊 Expense Analysis")
-                    
-                    col_met1, col_met2, col_met3 = output_container.columns(3)
-                    
-                    grand_total_abs = combined_expenses_df['Amount'].abs().sum()
-                    recurring_count = combined_expenses_df['Recurring Flag'].sum()
-                    expense_count = len(combined_expenses_df)
-                    
-                    col_met1.metric(label="Total Expenses for Period", value=f"${grand_total_abs:,.2f}")
-                    col_met2.metric(label="Total Transactions", value=expense_count)
-                    col_met3.metric(label="Recurring Flagged", value=recurring_count)
-                    
-                    output_container.subheader("Top Categories")
-                    chart_data = pivot_summary_df[pivot_summary_df['Category'] != '**Grand Total**'].copy()
-                    chart_data['Amount (Absolute)'] = chart_data['Total Amount'].abs()
-                    chart_data = chart_data.sort_values('Amount (Absolute)', ascending=False).head(10)
-                    output_container.bar_chart(chart_data.set_index('Category')['Amount (Absolute)'])
-
-                    output_container.markdown("---")
-
-                    tab1, tab2, tab3, tab4 = output_container.tabs([
-                        "Combined Expenses (Final)", "Category Summary", "Source A Raw", "Source B Raw"
-                    ])
-
-                    # Tab 1: Combined Expenses (10 Columns)
-                    tab1.subheader("Combined Expenses Data (10 Columns)")
-                    # The syntax error has been FIXED here:
-                    styled_df = combined_expenses_df.style.format({
-                        'Amount': '${:,.2f}',
-                        'Cumulative Sum': '${:,.2f}',
-                        '% of total': '{:.2%}',
-                        'Cumulative % of total': '{:.2%}'
-                    })
-                    tab1.dataframe(styled_df, use_container_width=True)
-
-                    # Tab 2: Category Summary (Pivot Table)
-                    tab2.subheader("Category Roll-up Summary")
-                    tab2.dataframe(pivot_summary_df, use_container_width=True)
-
-                    # Tab 3: Source A Raw
-                    tab3.subheader("Source A Data")
-                    tab3.dataframe(df_a_cleaned, use_container_width=True)
-
-                    # Tab 4: Source B Raw
-                    tab4.subheader("Source B Data")
-                    tab4.dataframe(df_b_cleaned, use_container_width=True)
-
+            
             except Exception as e:
-                # Clear session state on error so download button disappears
+                # Clear session state flags on error
                 if 'report_bytes' in st.session_state: del st.session_state.report_bytes
-                if 'report_filename' in st.session_state: del st.session_state.report_filename
-                    
+                if 'report_ready' in st.session_state: del st.session_state.report_ready
+                
                 st.exception(e) 
                 status_message.error(f"An error occurred during processing. Please check the logs for details.")
                 st.warning("Please ensure your files have exactly these 6 columns in order: **Transaction Date, Post Date, Description, Category, Type, Amount**.")
             # --- END PROCESSING ---
             
-            # Rerun the app to update the download button status
+            # Rerun the app to update the page and display the analysis section
             st.rerun()
 
         else:
             # This runs if the button was clicked BUT one or both files are missing
             status_message.warning("Please upload both Source File A and Source File B.")
 
+    # --- ANALYSIS DISPLAY LOGIC (RUNS ON EVERY RERUN IF REPORT_READY IS TRUE) ---
+    if st.session_state.report_ready:
+        
+        # Retrieve data from session state
+        combined_expenses_df = st.session_state.combined_expenses_df
+        pivot_summary_df = st.session_state.pivot_summary_df
+        df_a_cleaned = st.session_state.df_a_cleaned
+        df_b_cleaned = st.session_state.df_b_cleaned
+        
+        output_container.header("3. 📊 Expense Analysis")
+        
+        # Row 1: Key Metrics (st.metric)
+        col_met1, col_met2, col_met3 = output_container.columns(3)
+        
+        grand_total_abs = combined_expenses_df['Amount'].abs().sum()
+        recurring_count = combined_expenses_df['Recurring Flag'].sum()
+        expense_count = len(combined_expenses_df)
+        
+        col_met1.metric(label="Total Expenses for Period", value=f"${grand_total_abs:,.2f}")
+        col_met2.metric(label="Total Transactions", value=expense_count)
+        col_met3.metric(label="Recurring Flagged", value=recurring_count)
+        
+        # Row 2: Charts (Simple Category Bar Chart)
+        output_container.subheader("Top Categories")
+        chart_data = pivot_summary_df[pivot_summary_df['Category'] != '**Grand Total**'].copy()
+        chart_data['Amount (Absolute)'] = chart_data['Total Amount'].abs()
+        chart_data = chart_data.sort_values('Amount (Absolute)', ascending=False).head(10)
+        output_container.bar_chart(chart_data.set_index('Category')['Amount (Absolute)'])
+
+        output_container.markdown("---")
+
+        # Row 3: Tabs for detailed data (st.tabs)
+        tab1, tab2, tab3, tab4 = output_container.tabs([
+            "Combined Expenses (Final)", "Category Summary", "Source A Raw", "Source B Raw"
+        ])
+
+        # Tab 1: Combined Expenses (10 Columns)
+        tab1.subheader("Combined Expenses Data (10 Columns)")
+        styled_df = combined_expenses_df.style.format({
+            'Amount': '${:,.2f}',
+            'Cumulative Sum': '${:,.2f}',
+            '% of total': '{:.2%}',
+            'Cumulative % of total': '{:.2%}'
+        })
+        tab1.dataframe(styled_df, use_container_width=True)
+
+        # Tab 2: Category Summary (Pivot Table)
+        tab2.subheader("Category Roll-up Summary")
+        tab2.dataframe(pivot_summary_df, use_container_width=True)
+
+        # Tab 3: Source A Raw
+        tab3.subheader("Source A Data")
+        tab3.dataframe(df_a_cleaned, use_container_width=True)
+
+        # Tab 4: Source B Raw
+        tab4.subheader("Source B Data")
+        tab4.dataframe(df_b_cleaned, use_container_width=True)
+
 
 if __name__ == '__main__':
-    # Initialize session state for report data
+    # Initialize session state flags and data stores
+    if 'report_ready' not in st.session_state:
+        st.session_state.report_ready = False
     if 'report_bytes' not in st.session_state:
         st.session_state.report_bytes = None
     if 'report_filename' not in st.session_state:
