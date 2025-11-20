@@ -214,6 +214,9 @@ def generate_report(file_a_path: str, file_b_path: str, output_path: str):
         worksheet_ps.set_column('B:B', 15, money_fmt)     # Total Amount
         worksheet_ps.set_column('C:C', 18, percent_fmt)   # % of Grand Total
 
+    # Return the dataframes and the file path for display and download
+    return combined_expenses_df, pivot_summary_df, df_a_cleaned, df_b_cleaned, output_path
+
 
 # --- Streamlit Web App Interface ---
 
@@ -242,7 +245,6 @@ def main():
         )
     with col_a_status:
         # Check the value returned by the widget itself (which is stored in session state)
-        # Note: st.session_state.get() is safe here because file_a is defined right before.
         status_a = '✅' if st.session_state.get('file_a_uploader') else '⚠️'
         # Use st.markdown to display the status, aligned with the uploader
         st.markdown(f"<div style='padding-top: 25px;'>{status_a}</div>", unsafe_allow_html=True)
@@ -264,11 +266,31 @@ def main():
         
     st.markdown("---") 
     
-    # --- 2. Generate Button (Isolated and Primary) ---
-    st.subheader("🚀 2. Generate Report")
+    # --- 2. Generate and Download Buttons (Side-by-Side) ---
+    st.subheader("🚀 2. Report Generation")
     
-    # The 'type="primary"' button will now be green due to the custom CSS injection
-    button_clicked = st.button('Generate 4-Sheet Expense Report', key='main_generate_button', type="primary")
+    # Use two columns for the buttons
+    col_generate, col_download = st.columns([1, 1])
+
+    with col_generate:
+        # The 'type="primary"' button will now be green due to the custom CSS injection
+        button_clicked = st.button('Generate 4-Sheet Expense Report', key='main_generate_button', type="primary")
+
+    with col_download:
+        # The download button is defined here but is initially disabled/hidden.
+        # It needs the report bytes stored in session state from a previous successful run.
+        if st.session_state.get('report_bytes'):
+            col_download.download_button(
+                label="⬇️ Download Report",
+                data=st.session_state.report_bytes,
+                file_name=st.session_state.report_filename,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key='download_report_button'
+            )
+        else:
+            # Placeholder text/button when no report is ready
+            col_download.button('Report Not Ready', disabled=True, key='placeholder_button')
+
 
     st.markdown("---") 
 
@@ -307,21 +329,17 @@ def main():
                     output_path = os.path.join(temp_dir, output_filename)
                     
                     # CALL THE CORE PROCESSING FUNCTION
-                    generate_report(path_a, path_b, output_path)
-                    
-                    # Re-read files needed for display (Pandas DataFrame)
-                    df_a_cleaned = clean_data(pd.read_excel(path_a))
-                    df_b_cleaned = clean_data(pd.read_excel(path_b))
-                    
-                    combined_df = pd.concat([df_a_cleaned, df_b_cleaned], ignore_index=True)
-                    combined_expenses_df = calculate_metrics(combined_df, RECURRING_KEYWORDS)
-                    pivot_summary_df = create_pivot_summary(combined_expenses_df)
+                    combined_expenses_df, pivot_summary_df, df_a_cleaned, df_b_cleaned, final_path = generate_report(path_a, path_b, output_path)
                     
                     # Read the generated report file into memory for download
-                    with open(output_path, "rb") as f:
+                    with open(final_path, "rb") as f:
                         report_bytes = f.read()
-
-                    status_message.success("Report generated successfully! Scroll down for analysis.")
+                        
+                    # CRITICAL: Store the report data in Session State for the download button on the NEXT rerun
+                    st.session_state.report_bytes = report_bytes
+                    st.session_state.report_filename = output_filename
+                    
+                    status_message.success("Report generated successfully! Scroll down for analysis. The download button is now active above.")
                     
                     # --- OUTPUT SECTION (METRICS, CHARTS, TABS, DATAFRAMES) ---
                     output_container.header("3. 📊 Expense Analysis")
@@ -363,7 +381,7 @@ def main():
                     styled_df = combined_expenses_df.style.format({
                         'Amount': '${:,.2f}',
                         'Cumulative Sum': '${:,.2f}',
-                        '% of total': '{:.2%}',
+                        '%' of total': '{:.2%}',
                         'Cumulative % of total': '{:.2%}'
                     })
                     tab1.dataframe(styled_df, use_container_width=True)
@@ -380,22 +398,23 @@ def main():
                     tab4.subheader("Source B Data")
                     tab4.dataframe(df_b_cleaned, use_container_width=True)
 
-                    # Download button (moved to bottom of output container)
-                    output_container.markdown("---")
-                    output_container.download_button(
-                        label="⬇️ Download Full Excel Report (4 Sheets)",
-                        data=report_bytes,
-                        file_name=output_filename,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key='download_report_button'
-                    )
-
             except Exception as e:
                 # The crucial 'except' block, aligned with 'try:'
+                # Clear session state on error so download button disappears
+                if 'report_bytes' in st.session_state:
+                    del st.session_state.report_bytes
+                if 'report_filename' in st.session_state:
+                    del st.session_state.report_filename
+                    
                 st.exception(e) 
                 status_message.error(f"An error occurred during processing. Please check the logs for details.")
                 st.warning("Please ensure your files have exactly these 6 columns in order: **Transaction Date, Post Date, Description, Category, Type, Amount**.")
             # --- END PROCESSING ---
+            
+            # Use st.rerun() to immediately update the page and activate the download button
+            # Note: This is an optional step but makes the download button immediately available.
+            # If you prefer the button to only appear on the next manual click, you can remove this.
+            st.rerun()
 
         else:
             # This runs if the button was clicked BUT one or both files are missing
@@ -403,4 +422,10 @@ def main():
 
 
 if __name__ == '__main__':
+    # Initialize session state for report data
+    if 'report_bytes' not in st.session_state:
+        st.session_state.report_bytes = None
+    if 'report_filename' not in st.session_state:
+        st.session_state.report_filename = None
+        
     main()
