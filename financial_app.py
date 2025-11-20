@@ -23,11 +23,6 @@ st.markdown("""
     border-color: #4CAF50;
 }
 
-/* Ensure secondary buttons (if used) remain default or are styled differently */
-.stButton>button:not(.primary) {
-    /* You can add custom styles for other buttons here if needed */
-}
-
 /* Center and style the title/header elements */
 div[data-testid="stAppViewBlock"] h1 {
     text-align: center;
@@ -70,7 +65,7 @@ REQUIRED_COLUMNS = [
     'Amount'
 ]
 
-# --- Core Data Processing Functions (No change here) ---
+# --- Core Data Processing Functions ---
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -84,6 +79,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # 3. Convert date columns and format to MM/DD/YY
     for col in ['Transaction Date', 'Post Date']:
+        # CRITICAL FIX: Use df[col] to convert column data, not the column name string 'col'
         df[col] = pd.to_datetime(df[col], errors='coerce') 
         df[col] = df[col].dt.strftime('%m/%d/%y')
     
@@ -246,6 +242,7 @@ def main():
         )
     with col_a_status:
         # Check the value returned by the widget itself (which is stored in session state)
+        # Note: st.session_state.get() is safe here because file_a is defined right before.
         status_a = '✅' if st.session_state.get('file_a_uploader') else '⚠️'
         # Use st.markdown to display the status, aligned with the uploader
         st.markdown(f"<div style='padding-top: 25px;'>{status_a}</div>", unsafe_allow_html=True)
