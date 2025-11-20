@@ -11,6 +11,13 @@ st.set_page_config(
     page_title="💰 Financial Assistant" 
 ) 
 
+# --- Session State Initialization (Crucial Fix) ---
+# Initialize session state keys for file uploaders before main() executes.
+if 'file_a_uploader' not in st.session_state:
+    st.session_state.file_a_uploader = None
+if 'file_b_uploader' not in st.session_state:
+    st.session_state.file_b_uploader = None
+
 # --- Configuration ---
 # 1. RECURRING KEYWORDS: FINAL list verified against all your provided samples.
 RECURRING_KEYWORDS = [
@@ -55,7 +62,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # 3. Convert date columns and format to MM/DD/YY
     for col in ['Transaction Date', 'Post Date']:
-        df[col] = pd.to_datetime(df[col], errors='coerce') 
+        df[col] = pd.to_datetime(col, errors='coerce') 
         df[col] = df[col].dt.strftime('%m/%d/%y')
     
     # Return all 6 columns
@@ -206,9 +213,8 @@ def main():
         st.markdown(f"**{', '.join(REQUIRED_COLUMNS)}**")
         st.caption("This minimizes clutter on the main page.")
 
-    # --- FIX: Use static labels and check state outside of the label definition ---
-
     # Create columns for Source File A to display uploader and status side-by-side
+    # The columns are defined here, but the session state is initialized above main()
     col_a_label, col_a_status = st.columns([0.8, 0.2])
 
     with col_a_label:
@@ -379,11 +385,4 @@ def main():
 
 
 if __name__ == '__main__':
-    # Initialize session state for file trackers if not present
-    # This block is correctly placed and serves its purpose (initializing values)
-    if 'file_a_uploader' not in st.session_state:
-        st.session_state.file_a_uploader = None
-    if 'file_b_uploader' not in st.session_state:
-        st.session_state.file_b_uploader = None
-    
     main()
