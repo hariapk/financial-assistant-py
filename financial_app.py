@@ -5,10 +5,10 @@ import tempfile
 import os
 import re
 
-# --- UI Configuration (FIXED: layout changed to narrow/default) ---
+# --- UI Configuration ---
 st.set_page_config(
-    layout="centered", # Changed from "wide" to "centered" (the default is narrow/centered)
-    page_title="💰 Financial Assistant" 
+    layout="centered", 
+    page_title="💰 Financial Assistant" # Title changed here
 ) 
 
 # --- Configuration ---
@@ -193,7 +193,7 @@ def generate_report(file_a_path: str, file_b_path: str, output_path: str):
 # --- Streamlit Web App Interface ---
 
 def main():
-    st.title('💰 Financial Data Processing Assistant')
+    st.title('💰 Financial Assistant') # Main title changed here
     st.markdown('### Generate Your Comprehensive Expense Report')
     
     # --- File Upload Section (Narrow Layout + Columns) ---
@@ -201,7 +201,6 @@ def main():
     st.write("Please upload both source files with the **6 required columns**.")
     
     # Using st.columns for clean side-by-side arrangement
-    # Columns will now compress to fit the narrow layout
     col1, col2 = st.columns(2)
     
     with col1:
@@ -337,5 +336,4 @@ def main():
     st.caption(f'**Recurring Keywords List (Edit in code):** {", ".join(RECURRING_KEYWORDS)}') 
 
 if __name__ == '__main__':
-
     main()
