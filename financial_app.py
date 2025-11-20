@@ -93,13 +93,17 @@ def calculate_metrics(df: pd.DataFrame, keywords: list) -> pd.DataFrame:
 
 def create_pivot_summary(expenses_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Creates the Category-level roll-up summary (Sheet 4).
+    Creates the Category-level roll-up summary (Sheet 4) and sorts it by spend.
     """
     if expenses_df.empty:
         return pd.DataFrame(columns=['Category', 'Total Amount', '% of Grand Total'])
         
     summary_df = expenses_df.groupby('Category')['Amount'].sum().reset_index()
     summary_df.columns = ['Category', 'Total Amount']
+
+    # --- NEW: Sort by the magnitude (absolute value) of Total Amount (largest expense first) ---
+    summary_df = summary_df.sort_values(by='Total Amount', ascending=True).reset_index(drop=True)
+    # Note: Since expenses are negative, ascending=True means largest magnitude (most negative) comes first.
 
     grand_total_abs = summary_df['Total Amount'].abs().sum()
     summary_df['% of Grand Total'] = summary_df['Total Amount'].abs() / grand_total_abs
@@ -129,22 +133,47 @@ def generate_report(file_a_path: str, file_b_path: str, output_path: str):
     
     with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
         
-        df_a_cleaned[REQUIRED_COLUMNS].to_excel(writer, sheet_name='Source A', index=False)
-        df_b_cleaned[REQUIRED_COLUMNS].to_excel(writer, sheet_name='Source B', index=False)
-        combined_expenses_df.to_excel(writer, sheet_name='Combined Expenses', index=False)
-        pivot_summary_df.to_excel(writer, sheet_name='Expense Pivot Summary', index=False)
-
-        # Apply formatting
+        # --- Define Formats ---
         workbook = writer.book
         money_fmt = workbook.add_format({'num_format': '$#,##0.00'})
         percent_fmt = workbook.add_format({'num_format': '0.00%'})
         
+        # NEW: Header Format (Black fill, White bold font)
+        header_fmt = workbook.add_format({
+            'bold': True,
+            'text_wrap': True,
+            'valign': 'top',
+            'fg_color': '#000000', # Black fill
+            'font_color': '#FFFFFF', # White font
+            'border': 1
+        })
+        
+        sheet_data = {
+            'Source A': df_a_cleaned[REQUIRED_COLUMNS],
+            'Source B': df_b_cleaned[REQUIRED_COLUMNS],
+            'Combined Expenses': combined_expenses_df,
+            'Expense Pivot Summary': pivot_summary_df
+        }
+
+        # Write data and apply header format to all sheets
+        for sheet_name, df in sheet_data.items():
+            df.to_excel(writer, sheet_name=sheet_name, index=False, header=False, startrow=1)
+            worksheet = writer.sheets[sheet_name]
+            
+            # Write column headers with the custom format at row 0 (which is startrow=1 in Excel)
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_fmt)
+
+        # Apply specific column formatting
+        
+        # Combined Expenses formatting 
         worksheet_ce = writer.sheets['Combined Expenses']
         worksheet_ce.set_column('F:F', 12, money_fmt) 
         worksheet_ce.set_column('H:H', 15, money_fmt)  
         worksheet_ce.set_column('I:I', 10, percent_fmt) 
         worksheet_ce.set_column('J:J', 18, percent_fmt) 
 
+        # Expense Pivot Summary formatting
         worksheet_ps = writer.sheets['Expense Pivot Summary']
         worksheet_ps.set_column('B:B', 15, money_fmt)  
         worksheet_ps.set_column('C:C', 18, percent_fmt)
