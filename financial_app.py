@@ -101,9 +101,8 @@ def create_pivot_summary(expenses_df: pd.DataFrame) -> pd.DataFrame:
     summary_df = expenses_df.groupby('Category')['Amount'].sum().reset_index()
     summary_df.columns = ['Category', 'Total Amount']
 
-    # --- NEW: Sort by the magnitude (absolute value) of Total Amount (largest expense first) ---
+    # Sort by the magnitude (absolute value) of Total Amount (largest expense first)
     summary_df = summary_df.sort_values(by='Total Amount', ascending=True).reset_index(drop=True)
-    # Note: Since expenses are negative, ascending=True means largest magnitude (most negative) comes first.
 
     grand_total_abs = summary_df['Total Amount'].abs().sum()
     summary_df['% of Grand Total'] = summary_df['Total Amount'].abs() / grand_total_abs
@@ -138,7 +137,7 @@ def generate_report(file_a_path: str, file_b_path: str, output_path: str):
         money_fmt = workbook.add_format({'num_format': '$#,##0.00'})
         percent_fmt = workbook.add_format({'num_format': '0.00%'})
         
-        # NEW: Header Format (Black fill, White bold font)
+        # Header Format (Black fill, White bold font)
         header_fmt = workbook.add_format({
             'bold': True,
             'text_wrap': True,
@@ -157,10 +156,11 @@ def generate_report(file_a_path: str, file_b_path: str, output_path: str):
 
         # Write data and apply header format to all sheets
         for sheet_name, df in sheet_data.items():
+            # Write data starting at row 1 (Excel row 2)
             df.to_excel(writer, sheet_name=sheet_name, index=False, header=False, startrow=1)
             worksheet = writer.sheets[sheet_name]
             
-            # Write column headers with the custom format at row 0 (which is startrow=1 in Excel)
+            # Write column headers with the custom format at row 0 (Excel row 1)
             for col_num, value in enumerate(df.columns.values):
                 worksheet.write(0, col_num, value, header_fmt)
 
@@ -216,7 +216,8 @@ def main():
     col_generate, col_download = st.columns([1, 1])
 
     with col_generate:
-        button_clicked = st.button('Generate 4-Sheet Expense Report', key='main_generate_button', type="primary")
+        # --- THE BUTTON TEXT IS CHANGED HERE ---
+        button_clicked = st.button('Generate Report', key='main_generate_button', type="primary")
 
     with col_download:
         if st.session_state.get('report_bytes'):
