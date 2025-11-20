@@ -206,19 +206,37 @@ def main():
         st.markdown(f"**{', '.join(REQUIRED_COLUMNS)}**")
         st.caption("This minimizes clutter on the main page.")
 
-    # Stacked uploads with dynamic labels
-    
-    # Check if files are uploaded to determine the label status
-    file_a = st.file_uploader(
-        f"Source File A (.xlsx or .xls) {'✅' if st.session_state.get('file_a_uploader') else '⚠️'}", 
-        type=['xlsx', 'xls'], 
-        key='file_a_uploader'
-    )
-    file_b = st.file_uploader(
-        f"Source File B (.xlsx or .xls) {'✅' if st.session_state.get('file_b_uploader') else '⚠️'}", 
-        type=['xlsx', 'xls'], 
-        key='file_b_uploader'
-    )
+    # --- FIX: Use static labels and check state outside of the label definition ---
+
+    # Create columns for Source File A to display uploader and status side-by-side
+    col_a_label, col_a_status = st.columns([0.8, 0.2])
+
+    with col_a_label:
+        file_a = st.file_uploader(
+            "Source File A (.xlsx or .xls)",  # Static Label
+            type=['xlsx', 'xls'],
+            key='file_a_uploader'
+        )
+    with col_a_status:
+        # Display status badge in the small column, checking session state separately
+        status_a = '✅' if st.session_state.get('file_a_uploader') else '⚠️'
+        # Use st.markdown to display the status, aligned with the uploader
+        st.markdown(f"<div style='padding-top: 25px;'>{status_a}</div>", unsafe_allow_html=True)
+
+
+    # Create columns for Source File B
+    col_b_label, col_b_status = st.columns([0.8, 0.2])
+
+    with col_b_label:
+        file_b = st.file_uploader(
+            "Source File B (.xlsx or .xls)",  # Static Label
+            type=['xlsx', 'xls'],
+            key='file_b_uploader'
+        )
+    with col_b_status:
+        # Display status badge in the small column
+        status_b = '✅' if st.session_state.get('file_b_uploader') else '⚠️'
+        st.markdown(f"<div style='padding-top: 25px;'>{status_b}</div>", unsafe_allow_html=True)
         
     st.markdown("---") 
     
@@ -362,6 +380,7 @@ def main():
 
 if __name__ == '__main__':
     # Initialize session state for file trackers if not present
+    # This block is correctly placed and serves its purpose (initializing values)
     if 'file_a_uploader' not in st.session_state:
         st.session_state.file_a_uploader = None
     if 'file_b_uploader' not in st.session_state:
