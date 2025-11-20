@@ -5,8 +5,7 @@ import tempfile
 import os
 import re
 
-# --- UI Configuration ---
-# MUST be the first Streamlit command
+# --- UI Configuration (Must be the first Streamlit command) ---
 st.set_page_config(
     layout="wide", 
     page_title="💰 Financial Report Tool",
@@ -57,7 +56,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # 3. Convert date columns and format to MM/DD/YY
     for col in ['Transaction Date', 'Post Date']:
-        df[col] = pd.to_datetime(df[col], errors='coerce')
+        df[col] = pd.to_datetime(col, format='%m/%d/%y', errors='coerce') # Corrected: use df[col]
         df[col] = df[col].dt.strftime('%m/%d/%y')
     
     # Return all 6 columns
@@ -202,6 +201,141 @@ def main():
     st.subheader("📁 1. Upload Transaction Files")
     st.write("Please upload both source files with the **6 required columns**.")
     
+    # Using st.columns for clean side-by-side arrangement
     col1, col2 = st.columns(2)
     
     with col1:
+        file_a = st.file_uploader("Source File A (.xlsx or .xls)", type=['xlsx', 'xls'], key='file_a_uploader')
+
+    with col2:
+        file_b = st.file_uploader("Source File B (.xlsx or .xls)", type=['xlsx', 'xls'], key='file_b_uploader')
+        
+    st.markdown("---") 
+
+    button_clicked = st.button('🚀 2. Generate Report', key='main_generate_button', type="primary")
+
+    # Container to hold status and the main output
+    output_container = st.container()
+    
+    status_message = st.empty()
+
+    # Conditional structure for processing
+    if button_clicked:
+        if file_a is not None and file_b is not None:
+            # --- START PROCESSING ---
+            try:
+                status_message.info("Processing files... this may take a moment.")
+                
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    path_a = os.path.join(temp_dir, file_a.name)
+                    path_b = os.path.join(temp_dir, file_b.name)
+                    
+                    with open(path_a, "wb") as f:
+                        f.write(file_a.getvalue())
+                    with open(path_b, "wb") as f:
+                        f.write(file_b.getvalue())
+
+                    output_filename = 'Financial_Data_Report_Output.xlsx'
+                    output_path = os.path.join(temp_dir, output_filename)
+                    
+                    # CALL THE CORE PROCESSING FUNCTION
+                    generate_report(path_a, path_b, output_path)
+                    
+                    # Re-read files needed for display (Pandas DataFrame)
+                    # We need to re-read to display them in the Streamlit tabs
+                    df_a_cleaned = clean_data(pd.read_excel(path_a))
+                    df_b_cleaned = clean_data(pd.read_excel(path_b))
+                    
+                    combined_df = pd.concat([df_a_cleaned, df_b_cleaned], ignore_index=True)
+                    combined_expenses_df = calculate_metrics(combined_df, RECURRING_KEYWORDS)
+                    pivot_summary_df = create_pivot_summary(combined_expenses_df)
+                    
+                    # Read the generated report file into memory for download
+                    with open(output_path, "rb") as f:
+                        report_bytes = f.read()
+
+                    status_message.success("Report generated successfully! Scroll down for analysis.")
+                    
+                    # --- OUTPUT SECTION (NEW UI: METRICS, CHARTS, TABS, DATAFRAMES) ---
+                    output_container.header("3. 📊 Expense Analysis")
+                    
+                    # Row 1: Key Metrics (st.metric)
+                    col_met1, col_met2, col_met3 = output_container.columns(3)
+                    
+                    grand_total_abs = combined_expenses_df['Amount'].abs().sum()
+                    recurring_count = combined_expenses_df['Recurring Flag'].sum()
+                    expense_count = len(combined_expenses_df)
+                    
+                    col_met1.metric(label="Total Expenses for Period", value=f"${grand_total_abs:,.2f}")
+                    col_met2.metric(label="Total Transactions", value=expense_count)
+                    col_met3.metric(label="Recurring Flagged", value=recurring_count)
+                    
+                    # Row 2: Charts (Simple Category Bar Chart)
+                    output_container.subheader("Top Categories")
+                    # Prepare data for chart (exclude Grand Total row)
+                    chart_data = pivot_summary_df[pivot_summary_df['Category'] != '**Grand Total**'].copy()
+                    chart_data['Amount (Absolute)'] = chart_data['Total Amount'].abs()
+                    chart_data = chart_data.sort_values('Amount (Absolute)', ascending=False).head(10)
+                    
+                    # Display the bar chart
+                    output_container.bar_chart(chart_data.set_index('Category')['Amount (Absolute)'])
+
+                    output_container.markdown("---")
+
+                    # Row 3: Tabs for detailed data (st.tabs)
+                    tab1, tab2, tab3, tab4 = output_container.tabs([
+                        "Combined Expenses (Final)", 
+                        "Category Summary", 
+                        "Source A Raw", 
+                        "Source B Raw"
+                    ])
+
+                    # Tab 1: Combined Expenses (10 Columns)
+                    tab1.subheader("Combined Expenses Data (10 Columns)")
+                    # Apply custom styling for better visibility in the dataframe
+                    styled_df = combined_expenses_df.style.format({
+                        'Amount': '${:,.2f}',
+                        'Cumulative Sum': '${:,.2f}',
+                        '% of total': '{:.2%}',
+                        'Cumulative % of total': '{:.2%}'
+                    })
+                    tab1.dataframe(styled_df, use_container_width=True)
+
+                    # Tab 2: Category Summary (Pivot Table)
+                    tab2.subheader("Category Roll-up Summary")
+                    tab2.dataframe(pivot_summary_df, use_container_width=True)
+
+                    # Tab 3: Source A Raw
+                    tab3.subheader("Source A Data")
+                    tab3.dataframe(df_a_cleaned, use_container_width=True)
+
+                    # Tab 4: Source B Raw
+                    tab4.subheader("Source B Data")
+                    tab4.dataframe(df_b_cleaned, use_container_width=True)
+
+                    # Download button (moved to bottom of output container)
+                    output_container.markdown("---")
+                    output_container.download_button(
+                        label="⬇️ Download Full Excel Report (4 Sheets)",
+                        data=report_bytes,
+                        file_name=output_filename,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key='download_report_button'
+                    )
+
+            except Exception as e:
+                # The crucial 'except' block, aligned with 'try:'
+                st.exception(e) 
+                status_message.error(f"An error occurred during processing. Please check the logs for details.")
+                st.warning("Please ensure your files have exactly these 6 columns in order: **Transaction Date, Post Date, Description, Category, Type, Amount**.")
+            # --- END PROCESSING ---
+
+        else:
+            # This runs if the button was clicked BUT one or both files are missing
+            status_message.warning("Please upload both Source File A and Source File B.")
+
+    st.markdown('---')
+    st.caption(f'**Recurring Keywords List (Edit in code):** {", ".join(RECURRING_KEYWORDS)}') 
+
+if __name__ == '__main__':
+    main()
