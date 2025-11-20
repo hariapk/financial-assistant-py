@@ -8,7 +8,7 @@ import re
 # --- UI Configuration ---
 st.set_page_config(
     layout="centered", 
-    page_title="💰 Financial Assistant" # Title changed here
+    page_title="💰 Financial Assistant" 
 ) 
 
 # --- Configuration ---
@@ -41,7 +41,7 @@ REQUIRED_COLUMNS = [
     'Amount'
 ]
 
-# --- Core Data Processing Functions ---
+# --- Core Data Processing Functions (No change here) ---
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -193,30 +193,44 @@ def generate_report(file_a_path: str, file_b_path: str, output_path: str):
 # --- Streamlit Web App Interface ---
 
 def main():
-    st.title('💰 Financial Assistant') # Main title changed here
+    st.title('💰 Financial Assistant')
     st.markdown('### Generate Your Comprehensive Expense Report')
     
-    # --- File Upload Section (Narrow Layout + Columns) ---
+    # --- 1. Upload Section (Clean and Compact) ---
     st.subheader("📁 1. Upload Transaction Files")
-    st.write("Please upload both source files with the **6 required columns**.")
-    
-    # Using st.columns for clean side-by-side arrangement
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        file_a = st.file_uploader("Source File A (.xlsx or .xls)", type=['xlsx', 'xls'], key='file_a_uploader')
 
-    with col2:
-        file_b = st.file_uploader("Source File B (.xlsx or .xls)", type=['xlsx', 'xls'], key='file_b_uploader')
+    # Use an expander to hide the detailed column requirements
+    with st.expander("Click for Required File Format (6 Columns)"):
+        st.caption("Please ensure your uploaded files contain exactly these 6 columns:")
+        st.markdown(f"**{', '.join(REQUIRED_COLUMNS)}**")
+        st.caption("This minimizes clutter on the main page.")
+
+    # Stacked uploads for clean look on desktop and mobile
+    file_a = st.file_uploader("Source File A (.xlsx or .xls)", type=['xlsx', 'xls'], key='file_a_uploader')
+    file_b = st.file_uploader("Source File B (.xlsx or .xls)", type=['xlsx', 'xls'], key='file_b_uploader')
         
     st.markdown("---") 
+    
+    # --- 2. Generate Button (Isolated for clear workflow) ---
+    st.subheader("🚀 2. Generate Report")
+    button_clicked = st.button('Click to Run Analysis', key='main_generate_button', type="primary")
 
-    button_clicked = st.button('🚀 2. Generate Report', key='main_generate_button', type="primary")
+    st.markdown("---") 
 
     # Container to hold status and the main output
     output_container = st.container()
     
     status_message = st.empty()
+    
+    # --- SIDEBAR (For less critical info) ---
+    st.sidebar.title("⚙️ Configuration")
+    st.sidebar.caption("Keywords used to flag recurring transactions.")
+    st.sidebar.markdown(f'**Recurring Keywords List:**')
+    
+    # Display the keywords list in the sidebar
+    for keyword in RECURRING_KEYWORDS:
+        st.sidebar.caption(f'- {keyword}')
+
 
     # Conditional structure for processing
     if button_clicked:
@@ -332,8 +346,6 @@ def main():
             # This runs if the button was clicked BUT one or both files are missing
             status_message.warning("Please upload both Source File A and Source File B.")
 
-    st.markdown('---')
-    st.caption(f'**Recurring Keywords List (Edit in code):** {", ".join(RECURRING_KEYWORDS)}') 
 
 if __name__ == '__main__':
     main()
